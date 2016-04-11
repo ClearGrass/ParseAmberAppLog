@@ -51,10 +51,10 @@ def parse(fileName):
     infile.close()    
     # return 
     toFile = file(outFileName, "w")
-    toFile.write(u"时间".encode("utf8"))
+    toFile.write(u"时间".encode("gbk"))
     for k in orders:
         toFile.write(",")
-        toFile.write(k.encode("utf8"))
+        toFile.write(k.encode("gbk"))
     toFile.write("\n")
     for time in timeList :
         toFile.write(results.get(time).get("时间"))
@@ -100,18 +100,20 @@ def getMapByMaper(data, maper):
         for k, r in maper.iteritems() :
             slict = data[r.start: r.end]
             value = r.value(slict)
-            # print k , slict, value, r.start, r.end
             res[k] = value
         return res
         pass
     
     pass
 
+def dealFinalValue(value):
+    return value
+    pass
 
 
 
-def MakeRange(p1, p2, negative = False, multiple = 1, hexv = False) :
-    return Range(p1, p2, negative, multiple, hexv)
+def MakeRange(p1, p2, negative = False, multiple = 1, hexv = False, func = None) :
+    return Range(p1, p2, negative, multiple, hexv, func)
 
 def getMaperByFlag(flag) :
     # print "flag", flag, 0xd0, 0xd1, 0xd2
@@ -165,30 +167,75 @@ def getMaperByFlag(flag) :
     elif flag == 0xd2 :
         return {
             kSystemStatusRegister : MakeRange(1, 1, hexv = True),
-            kVbusS : MakeRange(2, 1, hexv = True),
-            kChrgS : MakeRange(3, 1, hexv = True),
-            kDpmS : MakeRange(4, 1, hexv = True),
-            kPgS : MakeRange(5, 1, hexv = True),
-            kThermS : MakeRange(6, 1, hexv = True),
-            kVsysS : MakeRange(7, 1, hexv = True),
+            kVbusS : MakeRange(2, 1, hexv = True, func = createFunctionBy([
+                ("0x00", "Unknown")
+                , ("0x01", "USB host")
+                , ("0x02", "Adapter port")
+                , ("0x03", "OTG")
+                ])),
+            kChrgS : MakeRange(3, 1, hexv = True, func = createFunctionBy([
+                ("0x00", "Not Charging")
+                , ("0x01", "Pre-charge")
+                , ("0x02", "Fast Charging")
+                , ("0x03", "Charge Termination Done")
+                ])),
+            kDpmS : MakeRange(4, 1, hexv = True, func = createFunctionBy([
+                ("0x00", "Not DPM")
+                , ("0x01", "VINDPM or IINDPM")
+                ])),
+            kPgS : MakeRange(5, 1, hexv = True, func = createFunctionBy([
+                ("0x00", "Not Power Good")
+                , ("0x01", "Power Good")
+                ])),
+            kThermS : MakeRange(6, 1, hexv = True, func = createFunctionBy([
+                ("0x00", "Normal")
+                , ("0x01", "In Thermal Regulation")
+                ])),
+            kVsysS : MakeRange(7, 1, hexv = True, func = createFunctionBy([
+                ("0x00", "BAT>VSYSMIN")
+                , ("0x01", "BAT<VSYSMIN")
+                ])),
             kFaultRegister : MakeRange(8, 1, hexv = True),
-            kWatchgodFault : MakeRange(9, 1, hexv = True),
-            kChrgFault : MakeRange(10, 1, hexv = True),
-            kBatFault : MakeRange(11, 1, hexv = True),
-            kNtcFualt : MakeRange(12, 1, hexv = True),
+            kWatchgodFault : MakeRange(9, 1, hexv = True, func = createFunctionBy([
+                ("0x00", "Normal")
+                , ("0x01", "Watchdog timer expiration")
+                ])),
+            kChrgFault : MakeRange(10, 1, hexv = True, func = createFunctionBy([
+                ("0x00", "Normal")
+                , ("0x01", "Input fault")
+                , ("0x02", "Thermal shutdown")
+                , ("0x03", "Charge Safety Timer Expiration")
+                ])),
+            kBatFault : MakeRange(11, 1, hexv = True, func = createFunctionBy([
+                ("0x00", "Normal")
+                , ("0x01", "BATOVP")
+                ])),
+            kNtcFualt : MakeRange(12, 1, hexv = True, func = createFunctionBy([
+                ("0x00", "Normal")
+                , ("0x01", "Cold")
+                , ("0x02", "Hot")
+                ])),
             kSystemError : MakeRange(13, 4, hexv = True),
-            kAmberRecycle: MakeRange(17, 2, hexv = True),
+            # kAmberRecycle: MakeRange(17, 2),
         }
         pass
     else :
         pass
     pass
-
+def createFunctionBy(couples):
+    def theFunction(thevalue):
+        for (value, string) in couples:
+            if thevalue == value :
+                return "%s(%s)" % (string, value)
+            pass
+        return thevalue
+        pass
+    return theFunction
 
 class Range(object):
     """docstring for Range"""
 
-    def __init__(self, start, length, negative = False, multiple = 1, hexv = False):
+    def __init__(self, start, length, negative = False, multiple = 1, hexv = False, func = None):
         super(Range, self).__init__()
         self.start = start * 2
         self.length = length
@@ -196,26 +243,31 @@ class Range(object):
         self.negative = negative
         self.multiple = multiple
         self.hex = hexv
+        self.func = func
     def value(self, hexV):
         if self.hex:
-            return "0x" + hexV
-        INT8_MAX =         0x7F
-        UINT8_MAX =        0xff
-        INT16_MAX =      0x7fff
-        UINT16_MAX =     0xffff
-        INT32_MAX =  0x7fffffff
-        UINT32_MAX = 0xffffffff
-        INT64_MAX = 0x7fffffffffffffff
-        v = int(hexV, 16)
-        length = self.length
-        if self.negative : 
-            maxV = INT8_MAX if length == 1 else (INT16_MAX if length == 2 else (INT32_MAX if length == 4 else INT64_MAX))
-            if v > maxV :
-                x = UINT8_MAX + 1 if length == 1 else (UINT16_MAX + 1 if length == 2 else (UINT32_MAX + 1 if length == 4 else  0))
-                v = int(v - x)
-        return v * self.multiple
+            thevalue = "0x" + hexV
+        else :
+            INT8_MAX   =       0x7F
+            UINT8_MAX  =       0xff
+            INT16_MAX  =     0x7fff
+            UINT16_MAX =     0xffff
+            INT32_MAX  = 0x7fffffff
+            UINT32_MAX = 0xffffffff
+            INT64_MAX  = 0x7fffffffffffffff
+            v = int(hexV, 16)
+            length = self.length
+            if self.negative : 
+                maxV = INT8_MAX if length == 1 else (INT16_MAX if length == 2 else (INT32_MAX if length == 4 else INT64_MAX))
+                if v > maxV :
+                    x = UINT8_MAX + 1 if length == 1 else (UINT16_MAX + 1 if length == 2 else (UINT32_MAX + 1 if length == 4 else  0))
+                    v = int(v - x)
+            thevalue = v * self.multiple
+        if self.func != None :
+            thevalue = self.func(thevalue)
+        return thevalue
         
 if __name__ == "__main__":
     # main()
-    parse("8DC738557637_03-19/8DC738557637.txt")
+    parse("8DC738557637.txt")
     pass
