@@ -119,7 +119,12 @@ def getMaperByFlag(flag) :
     # print "flag", flag, 0xd0, 0xd1, 0xd2
     if flag == 1 :
         return {
-            kAmberStatus: MakeRange(5, 1),
+            kAmberStatus: MakeRange(5, 1 , func = createFunctionBy([
+                (0, "待机".decode("utf-8").encode("gbk"))
+                , (2, "充电".decode("utf-8").encode("gbk"))
+                , (3, "放电".decode("utf-8").encode("gbk"))
+                , (4, "充放电".decode("utf-8").encode("gbk"))
+                ])),
             kAmberVoltage: MakeRange(6, 2, multiple= 0.001),
             kAmberCapacity: MakeRange(8, 2),
             kAmberPower: MakeRange(10, 1),
@@ -156,7 +161,6 @@ def getMaperByFlag(flag) :
             kAvaragePhoneCurrent: MakeRange(6, 2),
             kWatchCurrent: MakeRange(8, 2),
             kPhoneCurrent: MakeRange(10, 2),
-            kAmberState: MakeRange(14, 1),
             kAmberOpen: MakeRange(15, 1),
             kHeatAlert: MakeRange(16, 1),
             kIceAlert: MakeRange(17, 1),
@@ -269,5 +273,5 @@ class Range(object):
         
 if __name__ == "__main__":
     # main()
-    parse("8DC738557637.txt")
+    parse("9AF136749073_04-23/9AF136749073.txt")
     pass
